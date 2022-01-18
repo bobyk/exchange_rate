@@ -8,10 +8,10 @@ $(function () {
     loadPbFunc = function () {
         var pbExchangeType = $('#pb-exchange-type').val();
 
-        console.log('https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=' + pbExchangeType);
         $.getJSON(
             'https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=' + pbExchangeType,
             function (response) {
+                console.log(response);
                 buildRates($('#pb-rates'), response);
                 onLoaded();
             }
@@ -22,45 +22,43 @@ $(function () {
         loadPbFunc();
     }, 1);
 
-    // $.ajax({
-    //     url: 'https://minfin.com.ua/currency/banks/',
-    //     method: "GET",
-    //     cache: false,
-    //     // dataType: 'application/html',
-    // }).done(function (html) {
-    //     console.log(html);
-    // }).fail(function (jqXHR, textStatus) {
-    //     console.log(jqXHR);
-    //     console.log(textStatus);
-    //     console.log('adsf');
-    // });
-    // $.get(
-    //     'https://minfin.com.ua/currency/banks/',
-    //     function(response) {
-    //         var curTable = $('script[type="application/ld+json"]', response).text();
-    //         var curJson = $.parseJSON(curTable);
-    //
-    //     	console.log(curJson);
-    //         var rates = [];
-    // 		$('#goverla-rates tr').each(function () {
-    // 			var cur = $(this).attr('class');
-    // 			if(cur == undefined) return;
-    //
-    //             var bid = $('#'+cur + ' .bid', response);
-    //             var ask = $('#'+cur + ' .ask', response);
-    //
-    //             rates.push({
-    //                 ccy: cur,
-    //                 buy: parseFloat(bid.text()) / 100,
-    //                 sale: parseFloat(ask.text()) / 100,
-    // 			});
-    //
-    //         });
-    //
-    //     	buildRates($('#goverla-rates'), rates);
-    //     	onLoaded();
-    //     }
-    // );
+    $.ajax({
+        url: 'https://api.goverla.ua/graphql',
+        method: "POST",
+        dataType: 'json',
+        contentType: "application/json",
+        cache: false,
+        data: JSON.stringify({
+            operationName: "Point",
+            query: "query Point($alias: Alias!) {\n  point(alias: $alias) {\n    rates {\n      id\n      currency {\n        alias\n        exponent\n        codeAlpha\n        __typename\n      }\n      bid {\n        absolute\n        __typename\n      }\n      ask {\n        absolute\n        __typename\n      }\n      __typename\n    }\n    updatedAt\n    __typename\n  }\n}\n",
+            variables: {
+                alias: "goverla-ua"
+            }
+        })
+    }).done(function (response) {
+        if (response.data.point.rates === undefined) {
+            $('#tgoverla').hide();
+            $('#goverla-rates').hide();
+        }
+
+        let rates = response.data.point.rates;
+        var result = [];
+        for(let i in rates) {
+            let rate = rates[i];
+            let code = rate.currency.codeAlpha;
+            if (code == 'USD' || code == 'EUR' || code == 'PLN') {
+                result[result.length] = {
+                    ccy: code,
+                    buy: parseFloat(rate.bid.absolute) / 100,
+                    sale: parseFloat(rate.ask.absolute) / 100,
+                }
+            }
+        }
+
+        console.log(result)
+        buildRates($('#goverla-rates'), result);
+        onLoaded();
+    }).fail(function (jqXHR, textStatus) {});
 
     function onLoaded() {
         $("#loader").remove();
@@ -104,7 +102,7 @@ $(function () {
         for (var i in rates) {
             var rate = rates[i];
 
-            var tr = table.find('.' + rate.ccy);
+            var tr = table.find('.' + rate.ccy.toUpperCase());
             tr.find('td').remove();
             tr.append($('<td>' + rate.ccy.toUpperCase() + '</td>'));
             tr.append($('<td>' + parseFloat(rate.buy).toFixed(2) + '</td>'));
@@ -122,8 +120,8 @@ function Converter() {
 
     $(document).on('change', 'input.rateCol', function (e) {
         $this.rateCol[$(this).attr('name')] = $(this).val();
-        chrome.storage.sync.set({'rateCol': $this.rateCol}, function () {
-        });
+        console.log($this.rateCol);
+        chrome.storage.sync.set({'rateCol': $this.rateCol}, function () {});
         $this.doConvert();
     });
 
@@ -196,6 +194,8 @@ Converter.prototype.doConvert = function () {
         var currenctCurrencyRateIndex = 0;
         var sum = $this.calculate($this.sum.val());
 
+
+
         if ($this.currency.val() != 'UAH') {
             currenctCurrencyRateIndex = $table.find('td:contains("' + $this.currency.val() + '")').parent().index();
             var currentCurrencyRate = $($($table.find('tr')[currenctCurrencyRateIndex]).find('td')[$this.rateCol[rateColIndex]]).text();
@@ -216,6 +216,16 @@ Converter.prototype.doConvert = function () {
             }
 
             currentSum = Number(currentSum.toFixed(2));
+
+            // console.table({
+            //     tab: rateColIndex,
+            //     currency: currentCurrencySign,
+            //     curRateIndex: currenctCurrencyRateIndex,
+            //     rateCol: $this.rateCol[rateColIndex],
+            //     currRate1: currentRate,
+            //     sum: currentSum
+            // });
+
             $(this).find('td.converted').text(currentSum.toFixed(2) + ' ' + sign);
         });
     });
