@@ -11,6 +11,7 @@
             min-width: 290px;
             min-height: 246px;
             font-size: 14px;
+            border-radius: 5px;
         }
 
         h1 {
@@ -79,6 +80,10 @@
             box-sizing: border-box;
         }
 
+        #converter input:focus {
+            outline: none;
+        }
+
         #converter select {
             border: 1px solid #c1c1c1;
             border-right: none;
@@ -104,31 +109,27 @@
 
     </style>
     <script src="jquery-1.11.3.min.js"></script>
-    <link href="jquery.calculadora.min.css" type="text/css"/>
-    <script src="jquery.calculadora.min.js"></script>
     <script src="my.js"></script>
 </head>
 <body>
 <div id="content">
     <div id="converter">
-        <h1>Конвертер</h1>
         <span id="input-wrapper">
           <select id="currency" name="currency">
             <option value="UAH">₴</option>
             <option value="USD">$</option>
             <option value="EUR">€</option>
-            <option value="RUR">₽</option>
             <option value="PLN">zł</option>
           </select>
-          <input type="text" name="sum" placeholder="Сумма" autofocus=""/>
+          <input id="input" type="text" name="sum" placeholder="Сумма" autofocus=""/>
           <span id="result">0</span>
         </span>
     </div>
 
     <div class="f-right">
         <select id="pb-exchange-type" name="pb-exchange-type">
-            <option value="5">Наличный курс (Отделения)</option>
-            <option value="11">Безналичный курс (Privat24, пополнение вкладов, конвертация по картам)</option>
+            <option value="5">Готівковий курс (Відділення)</option>
+            <option value="11">Безготівковий курс (конвертація по карткам)</option>
         </select>
     </div>
 
@@ -142,7 +143,18 @@
         </tr>
         <tr class="EUR"></tr>
         <tr class="USD"></tr>
-        <tr class="RUR"></tr>
+    </table>
+
+    <h1 id="tpb">Monobank</h1>
+    <table id="mono-rates">
+        <tr>
+            <th></th>
+            <th><input type="radio" class="rateCol" name="mono-rates" value="1"/></th>
+            <th><input type="radio" class="rateCol" name="mono-rates" value="2"/></th>
+            <th></th>
+        </tr>
+        <tr class="EUR"></tr>
+        <tr class="USD"></tr>
     </table>
 
     <h1 id="tgoverla">Goverla.ua</h1>

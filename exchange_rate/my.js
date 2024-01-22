@@ -1,16 +1,26 @@
 var loadPbFunc;
+var loadMonoFunc;
+var firstLoad = true;
 $(function () {
-
-    onLoaded();
+    if (firstLoad) {
+        $('#currency').on('change', () => {
+            $('#input').focus();
+        });
+        $('#pb-exchange-type').on('change', (e) => {
+            console.log(this);
+            e.preventDefault();
+            loadPbFunc();
+        });
+    }
 
     var oConverter = new Converter();
 
     loadPbFunc = function () {
         var pbExchangeType = $('#pb-exchange-type').val();
-
         $.getJSON(
-            'https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=' + pbExchangeType,
+            'https://camface.quix.pw:2053/cors/https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=' + pbExchangeType,
             function (response) {
+                console.log(response);
                 chrome.storage.sync.set({'pbResponse': response}, function () {
                 });
                 buildRates($('#pb-rates'), response);
@@ -19,8 +29,41 @@ $(function () {
         );
     }
 
+    loadMonoFunc = function () {
+        $.getJSON(
+            'https://api.monobank.ua/bank/currency',
+            function (response) {
+                let rates = response;
+
+                let avalCodes = {840: 'USD', 980: 'UAH', 978: 'EUR', 985: 'PLN'};
+                var result = [];
+                for (let i in rates) {
+                    let rate = rates[i];
+                    if (rate.currencyCodeB != 980) continue;
+                    let code = rate.currencyCodeA;
+                    if (avalCodes[code] != undefined) {
+                        result[result.length] = {
+                            ccy: avalCodes[code],
+                            buy: parseFloat(rate.rateBuy),
+                            sale: parseFloat(rate.rateSell),
+                        }
+                    }
+                }
+
+                chrome.storage.sync.set({'monoResponse': result}, function () {
+                });
+                buildRates($('#mono-rates'), result);
+                onLoaded();
+            }
+        );
+    }
+
     window.setTimeout(function () {
         loadPbFunc();
+    }, 1);
+
+    window.setTimeout(function () {
+        loadMonoFunc();
     }, 1);
 
     window.setTimeout(function () {
@@ -38,6 +81,7 @@ $(function () {
                 }
             })
         }).done(function (response) {
+            //console.log(response);
             if (response.data.point.rates === undefined) {
                 $('#tgoverla').hide();
                 $('#goverla-rates').hide();
@@ -65,13 +109,17 @@ $(function () {
     }, 1);
 
     function onLoaded() {
-        chrome.storage.sync.get(['from', 'sum', 'rateCol', 'currency', 'pbExchangeType', 'pbResponse', 'goverlaResponse'], function (items) {
+        chrome.storage.sync.get(['from', 'sum', 'rateCol', 'currency', 'pbExchangeType', 'pbResponse', 'monoResponse', 'goverlaResponse'], function (items) {
             if (items.sum != undefined) {
                 $('#converter :input[name="sum"]').val(items.sum).select();
             }
 
             if (items.pbResponse != undefined && items.pbResponse) {
                 buildRates($('#pb-rates'), items.pbResponse);
+            }
+
+            if (items.monoResponse != undefined && items.monoResponse) {
+                buildRates($('#mono-rates'), items.monoResponse);
             }
 
             if (items.goverlaResponse != undefined && items.goverlaResponse) {
@@ -98,8 +146,10 @@ $(function () {
                 }
             }
 
-            if (items.pbExchangeType != undefined) {
+            if (items.pbExchangeType != undefined && firstLoad) {
                 $('#pb-exchange-type option[value="' + items.pbExchangeType + '"]').attr('selected', true);
+                firstLoad = false;
+                console.log('set option');
             }
 
             oConverter.doConvert();
@@ -127,7 +177,6 @@ function Converter() {
 
     $(document).on('change', 'input.rateCol', function (e) {
         $this.rateCol[$(this).attr('name')] = $(this).val();
-        console.log($this.rateCol);
         chrome.storage.sync.set({'rateCol': $this.rateCol}, function () {
         });
         $this.doConvert();
@@ -169,15 +218,17 @@ Converter.prototype.sum = null;
 Converter.prototype.from = null;
 Converter.prototype.calculate = function ($val) {
     $val = $val.replace(',', '.');
-    eval("var answer = " + $val);
+    $val = removeInvalidCharacters($val);
+    $val = calculateExpression($val)
+    if ($val !== NaN) {
+        this.setCalculatorResult($val);
+    }
 
-    this.setCalculatorResult(answer);
-
-    return answer;
+    return $val;
 };
 
 Converter.prototype.setCalculatorResult = function ($val) {
-    $('#result').text($val.toFixed(2));
+    $('#result').text(parseFloat($val).toFixed(2));
 };
 
 Converter.prototype.signs = [];
@@ -194,7 +245,7 @@ Converter.prototype.initSigns = function () {
 Converter.prototype.doConvert = function () {
     $this = this;
 
-    var $pbTable = $('#pb-rates, #goverla-rates');
+    var $pbTable = $('#pb-rates, #mono-rates, #goverla-rates');
 
     $pbTable.each(function () {
         var $table = $(this);
@@ -227,3 +278,78 @@ Converter.prototype.doConvert = function () {
         });
     });
 };
+
+function removeInvalidCharacters(string) {
+    return string.replace(/[^0-9\-\.\-\+\*\/\(\)\^]/gmsi, '');
+}
+
+function calculateExpression(expression) {
+    // Tokenize the expression (allowing decimals)
+    const tokens = expression.match(/([0-9]+(?:\.[0-9]*)?|\+|\-|\*|\/|\(|\))/g);
+
+    // Shunting Yard algorithm to convert infix to RPN
+    const outputQueue = [];
+    const operatorStack = [];
+
+    const precedence = {
+        '+': 1,
+        '-': 1,
+        '*': 2,
+        '/': 2,
+    };
+
+    tokens.forEach(token => {
+        if (!isNaN(token)) {
+            outputQueue.push(token);
+        } else if (token === '(') {
+            operatorStack.push(token);
+        } else if (token === ')') {
+            while (operatorStack.length && operatorStack[operatorStack.length - 1] !== '(') {
+                outputQueue.push(operatorStack.pop());
+            }
+            operatorStack.pop(); // Discard the '('
+        } else {
+            while (
+                operatorStack.length &&
+                precedence[operatorStack[operatorStack.length - 1]] >= precedence[token]
+                ) {
+                outputQueue.push(operatorStack.pop());
+            }
+            operatorStack.push(token);
+        }
+    });
+
+    while (operatorStack.length) {
+        outputQueue.push(operatorStack.pop());
+    }
+
+    // Evaluate the RPN expression
+    const resultStack = [];
+
+    outputQueue.forEach(token => {
+        if (!isNaN(token)) {
+            resultStack.push(parseFloat(token));
+        } else {
+            const b = resultStack.pop();
+            const a = resultStack.pop();
+            switch (token) {
+                case '+':
+                    resultStack.push(a + b);
+                    break;
+                case '-':
+                    resultStack.push(a - b);
+                    break;
+                case '*':
+                    resultStack.push(a * b);
+                    break;
+                case '/':
+                    resultStack.push(a / b);
+                    break;
+                default:
+                    throw new Error('Invalid operator');
+            }
+        }
+    });
+
+    return resultStack.pop();
+}
