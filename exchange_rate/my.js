@@ -1,18 +1,6 @@
 var loadPbFunc;
 var loadMonoFunc;
-var firstLoad = true;
 $(function () {
-    if (firstLoad) {
-        $('#currency').on('change', () => {
-            $('#input').focus();
-        });
-        $('#pb-exchange-type').on('change', (e) => {
-            console.log(this);
-            e.preventDefault();
-            loadPbFunc();
-        });
-    }
-
     var oConverter = new Converter();
 
     loadPbFunc = function () {
@@ -20,7 +8,6 @@ $(function () {
         $.getJSON(
             'https://camface.quix.pw:2053/cors/https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=' + pbExchangeType,
             function (response) {
-                console.log(response);
                 chrome.storage.sync.set({'pbResponse': response}, function () {
                 });
                 buildRates($('#pb-rates'), response);
@@ -146,12 +133,10 @@ $(function () {
                 }
             }
 
-            if (items.pbExchangeType != undefined && firstLoad) {
+            if (items.pbExchangeType != undefined) {
                 $('#pb-exchange-type option[value="' + items.pbExchangeType + '"]').attr('selected', true);
-                firstLoad = false;
                 console.log('set option');
             }
-
             oConverter.doConvert();
         });
     };
@@ -192,6 +177,7 @@ function Converter() {
 
     $this.currency = $('#currency').on('change', function (e) {
         $this.doConvert();
+        $('#input').focus();
         chrome.storage.sync.set({'currency': $(this).val()}, function () {
         });
     });
