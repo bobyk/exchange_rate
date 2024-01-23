@@ -1,7 +1,7 @@
 {
   "name": "Exchange rate | Курс валют",
-  "description": "Exchange rate of privatbank.ua | Goverla.ua",
-  "version": "1.8.5",
+  "description": "Exchange rate of privatbank.ua | Monobank | Goverla.ua",
+  "version": "1.8.6",
   "permissions": [
     "storage"
   ],
