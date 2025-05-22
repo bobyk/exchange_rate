@@ -6,7 +6,7 @@
     "storage"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://camface.quix.pw:2053/ https://api.monobank.ua/ https://api.goverla.ua/graphql"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://camface.quix.pw:2053/ https://api.monobank.ua/ https://api.goverla.ua/graphql https://bank.gov.ua/"
   },
   "action": {
     "browser_style": true,
